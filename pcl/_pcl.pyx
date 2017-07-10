@@ -57,6 +57,37 @@ SACMODEL_STICK = cpp.SACMODEL_STICK
 
 cnp.import_array()
 
+cdef class EuclideanClusterExtraction:
+    cdef cpp.EuclideanClusterExtraction_t *me
+
+    def __cinit__(self):
+        self.me = new cpp.EuclideanClusterExtraction_t()
+
+    def __dealloc__(self):
+        del self.me
+
+    def set_cluster_tolerance(self, double t):
+        self.me.setClusterTolerance(t)
+
+    def set_min_cluster_size(self, int s):
+        self.me.setMinClusterSize(s)
+
+    def set_max_cluster_size(self, int s):
+        self.me.setMaxClusterSize(s)
+
+    def set_input_cloud(self, PointCloud pc):
+        self.me.setInputCloud(pc.thisptr_shared)
+
+    def set_search_method(self, KdTree kt):
+        self.me.setSearchMethod(kt.thisptr_shared)
+
+    def extract(self):
+        cdef vector[cpp.PointIndices] ind
+        self.me.extract(ind)
+        result = []
+        for i in range(ind.size()):
+            result.append([ind[i].indices[j] for j in range(ind[i].indices.size())])
+        return result
 
 cdef class Segmentation:
     """
@@ -83,6 +114,8 @@ cdef class Segmentation:
         self.me.setMethodType (m)
     def set_distance_threshold(self, float d):
         self.me.setDistanceThreshold (d)
+    def set_max_iterations(self, int i):
+        self.me.setMaxIterations (i)
 
 #yeah, I can't be bothered making this inherit from SACSegmentation, I forget the rules
 #for how this works in cython templated extension types anyway
@@ -185,15 +218,18 @@ cdef class PointCloud:
     property width:
         """ property containing the width of the point cloud """
         def __get__(self): return self.thisptr().width
+        def __set__(self, value): self.thisptr().width = value
     property height:
         """ property containing the height of the point cloud """
         def __get__(self): return self.thisptr().height
+        def __set__(self, value): self.thisptr().height = value
     property size:
         """ property containing the number of points in the point cloud """
         def __get__(self): return self.thisptr().size()
     property is_dense:
         """ property containing whether the cloud is dense or not """
         def __get__(self): return self.thisptr().is_dense
+        def __set__(self, value): self.thisptr().is_dense = value
 
     def __repr__(self):
         return "<PointCloud of %d points>" % self.size
@@ -357,6 +393,12 @@ cdef class PointCloud:
         with nogil:
             error = cpp.savePLYFile(s, deref(self.thisptr()), binary)
         return error
+
+    def make_euclidean_cluster_extractor(self):
+        ext = EuclideanClusterExtraction()
+        cdef cpp.EuclideanClusterExtraction_t *cext = <cpp.EuclideanClusterExtraction_t *>ext.me
+        cext.setInputCloud(self.thisptr_shared)
+        return ext
 
     def make_segmenter(self):
         """
@@ -602,6 +644,17 @@ cdef class PassThroughFilter:
         cdef PointCloud pc = PointCloud()
         self.me.filter(pc.thisptr()[0])
         return pc
+
+cdef class KdTree:
+    cdef cpp.KdTreePtr_t thisptr_shared
+
+    def __cinit__(self, PointCloud pc not None):
+        me = new cpp.KdTree[cpp.PointXYZ]()
+        sp_assign(self.thisptr_shared, me)
+        me.setInputCloud(pc.thisptr_shared)
+
+    cdef inline cpp.KdTree[cpp.PointXYZ] *thisptr(self) nogil:
+        return self.thisptr_shared.get()
 
 cdef class KdTreeFLANN:
     """

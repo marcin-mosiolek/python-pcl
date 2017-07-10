@@ -79,6 +79,7 @@ cdef extern from "pcl/segmentation/sac_segmentation.h" namespace "pcl":
         void setDistanceThreshold (float)
         void setInputCloud (shared_ptr[PointCloud[T]])
         void segment (PointIndices, ModelCoefficients)
+        void setMaxIterations (int)
 
 ctypedef SACSegmentation[PointXYZ] SACSegmentation_t
 ctypedef SACSegmentationFromNormals[PointXYZ,Normal] SACSegmentationNormal_t
@@ -97,6 +98,21 @@ ctypedef MovingLeastSquares[PointXYZ,PointXYZ] MovingLeastSquares_t
 cdef extern from "pcl/search/kdtree.h" namespace "pcl::search":
     cdef cppclass KdTree[T]:
         KdTree()
+        void setInputCloud (shared_ptr[PointCloud[T]])
+
+ctypedef shared_ptr[KdTree[PointXYZ]] KdTreePtr_t
+
+cdef extern from "pcl/segmentation/extract_clusters.h" namespace "pcl":
+    cdef cppclass EuclideanClusterExtraction[T]:
+        void setInputCloud (shared_ptr[PointCloud[T]])
+        void setClusterTolerance (double)
+        void setMinClusterSize (int)
+        void setMaxClusterSize (int)
+        void extract (vector[PointIndices])
+        void setSearchMethod (shared_ptr[KdTree[T]])
+
+ctypedef EuclideanClusterExtraction[PointXYZ] EuclideanClusterExtraction_t
+
 
 ctypedef aligned_allocator[PointXYZ] aligned_allocator_t 
 ctypedef vector2[PointXYZ, aligned_allocator_t] AlignedPointTVector_t
