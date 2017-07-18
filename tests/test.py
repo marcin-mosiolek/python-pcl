@@ -425,3 +425,53 @@ class TestOctreePointCloudSearch(unittest.TestCase):
         rs = self.t.radius_search(good_point, 0.5)
         self.assertEqual(len(rs[0]), 19730)
         self.assertEqual(len(rs[1]), 19730)
+
+
+class TestEuclideanClusterExtractor(unittest.TestCase):
+
+    def setUp(self):
+        rng = np.random.RandomState(42)
+        # Define two dense set of points of size 30 and 100, resp
+        a = rng.randn(100, 3).astype(np.float32)
+        a[:30] -= 42
+
+        self.tolerance = 42
+        self.split = set([30, 70])
+        self.pc = pcl.PointCloud(a)
+        self.kd = pcl.KdTree(self.pc)
+        self.ec = self.pc.make_euclidean_cluster_extractor()
+        self.ec.set_search_method(self.kd)
+
+    def testExtract(self):
+        self.ec.set_cluster_tolerance(self.tolerance)
+        cluster_indices = self.ec.extract()
+        for ind in cluster_indices:
+            self.split.remove(len(ind))
+        self.assertEqual(len(self.split), 0)
+
+    def testExtractWithMinSizeOfClusters(self):
+        self.ec.set_cluster_tolerance(self.tolerance)
+        self.ec.set_min_cluster_size(50)
+        cluster_indices = self.ec.extract()
+        self.assertEqual(len(cluster_indices), 1)
+        self.assertEqual(len(cluster_indices[0]), 70)
+
+    def testExtractWithMaxSizeOfClusters(self):
+        self.ec.set_cluster_tolerance(self.tolerance)
+        self.ec.set_max_cluster_size(50)
+        cluster_indices = self.ec.extract()
+        self.assertEqual(len(cluster_indices), 1)
+        self.assertEqual(len(cluster_indices[0]), 30)
+
+    def testExtractWithDifferentTolerance(self):
+        self.ec.set_cluster_tolerance(0.5)
+        cluster_indices_half = self.ec.extract()
+        self.ec.set_cluster_tolerance(2)
+        cluster_indices_two = self.ec.extract()
+        self.assertGreaterEqual(
+                len(cluster_indices_half), len(cluster_indices_two)
+                )
+
+
+if __name__ == '__main__':
+    unittest.main()
